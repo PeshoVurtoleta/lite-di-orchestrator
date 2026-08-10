@@ -1,0 +1,169 @@
+# @zakkster/lite-di-orchestrator
+
+Version: 1.0.0-alpha.1 (synced with package.json + the VERSION const in Orchestrator.js)
+
+> Graceful-shutdown / process-lifecycle capstone for a lite-di service kernel.
+> Catch SIGTERM/SIGINT, drain readiness (readyz fails; livez stays up), disarm the
+> self-healing supervisor, run ordered app-cleanup steps while the graph is still
+> alive, dismantle the container graph in reverse-topological order LAST, all under
+> one hard DEADLINE, and always end by calling exit(code) EXACTLY ONCE with a
+> diagnostic code. The constructor is PURE and INERT (touches no process global);
+> signal ownership is opt-in via listen() and reversible via its disposer. Each
+> phase is caught in its own try/await -- a throwing/rejecting/hanging phase records
+> a dirty (or deadline) exit and ADVANCES; it never wedges the machine.
+
+This is the graceful-shutdown surface (GAP-2, the capstone) of the
+@zakkster/lite-di-* service-kernel line. It sits ABOVE the container (teardown),
+the supervisor (self-healing), and health (readiness): the one seam a long-running
+process wires to `process.on('SIGTERM', ...)` to shut down in the RIGHT order under
+a deadline. The supervisor HEALS, health REPORTS, this package RETIRES.
+
+## Installation
+npm install @zakkster/lite-di-orchestrator
+
+## Dependencies
+ZERO runtime dependencies -- not even a peer. The collaborators are duck-typed:
+`container` needs a `shutdown()` method, `health` a `drain()`, `supervisor` a
+`shutdown()`. Anything matching those shapes composes; the DI line is the killer
+use case, not a coupling. (The devDeps @zakkster/lite-di-container +
+-supervisor + -health exist only to PROVE the composition in the torture tiers.)
+ESM, single file. node:test only.
+
+## Exports
+- `Orchestrator` -- class (named export)
+- `STATES` -- frozen int enum { RUNNING: 0, DRAINING: 1, STOPPING: 2, STOPPED: 3, FORCED: 4 }
+- `EXITS` -- frozen int enum { OK: 0, DIRTY: 1, DEADLINE: 2, FORCED: 3 }
+- `VERSION` -- version string (three-place sync with package.json + CHANGELOG)
+No default export.
+
+## Model (the ratified forks -- decisions/0001-orchestrator-model.md)
+1. Signal ownership is OPT-IN and REVERSIBLE (fixed input). The constructor touches
+   no process global; `listen()` is the ONLY method calling `process.on`, and it
+   returns an idempotent disposer that `process.off`s every signal. A library that
+   grabbed signals on import is un-embeddable; this one is inert until asked.
+2. The ratified teardown ORDER: drain -> supervisor.shutdown -> steps -> container.
+   Drain FIRST so k8s stops routing while /livez stays up; supervisor.shutdown
+   BEFORE steps so nothing self-heals mid-teardown (it only stops supervising -- the
+   graph is still constructed, so steps can still resolve/use services); container
+   LAST because its reverse-topo teardown is the actual dismantling.
+3. Every phase FAILS CLOSED independently. Each phase is its own `try { await ... }
+   catch { dirty = true; }`: a throwing drain(), a rejecting collaborator, or a
+   thenable with a throwing `.then` getter records a DIRTY exit and ADVANCES. A
+   failing phase never aborts the remaining teardown and never hangs.
+4. exit(code) is called EXACTLY ONCE across ALL paths (clean completion, deadline,
+   double-signal), enforced by an `_exited` boolean latch every route checks-and-sets.
+5. There is NO steady-state hot loop (this is a cold lifecycle machine). The only
+   0-alloc lane is the `phase` getter; the retention concern (T6) is a soak, not a
+   frame budget.
+
+## Exit codes (the diagnostic contract)
+- EXITS.OK (0)       -- every phase completed cleanly within the deadline.
+- EXITS.DIRTY (1)    -- a phase threw/rejected but the sequence still finished in
+  time (caught per-phase; the teardown continued).
+- EXITS.DEADLINE (2) -- the whole sequence overran deadlineMs; a one-shot timer
+  force-exited (a hung phase is caught by the timer, never by a hang).
+- EXITS.FORCED (3)   -- a SECOND signal arrived while a shutdown was already in
+  flight (phase strictly between RUNNING and STOPPED): immediate exit, no waiting.
+
+## API
+- `new Orchestrator(container, options?)` -- `container` REQUIRED: a non-null object
+  with a `shutdown()` function (else TypeError). `options` = `{ health?, supervisor? }`:
+  `health` (if present) must have a `drain()` function; `supervisor` (if present) a
+  `shutdown()` function. An unknown option key throws with a did-you-mean hint. PURE
+  and INERT -- touches no process global.
+- `step(name, fn): void` -- COLD, append-only. `name` a non-empty string|symbol,
+  unique (duplicate throws); `fn` a function (else TypeError). Runs during STOPPING,
+  in registration order, AFTER supervisor.shutdown() and BEFORE container.shutdown().
+- `listen(options?): disposer` -- the ONLY method touching `process`. `options` =
+  `{ signals = ['SIGTERM','SIGINT'], exit = process.exit, force = false }`. Installs
+  one handler per signal; the handler drives `shutdown` with the injected `exit`. A
+  second install THROWS. Returns an idempotent disposer that `process.off`s every
+  signal. A second signal mid-teardown force-exits FORCED. `force` is reserved.
+- `shutdown(options?): Promise` -- the ordered teardown. `options` = `{ exit =
+  process.exit, timers = { setTimeout, clearTimeout }, deadlineMs = 10000 }`.
+  IDEMPOTENT: a second call returns the SAME promise. Always ends by calling
+  exit(code) EXACTLY ONCE. Resolves after exit has fired.
+- `phase: number` (getter) -- HOT, 0.000 B/op. The current lifecycle phase (one of
+  STATES). No branch, no allocation.
+
+## Allocation truth (measured, gated by @zakkster/lite-gc-profiler)
+- `get phase()`: 0.000 B/op. HARD gate at 0, over 1e6 reads, maxMajor 0 (measured
+  two ways: measureAllocs maxBytesPerCall 0 AND measureOps stabilize:'deep'). It is
+  the ONLY hot lane. Everything else (step / listen / shutdown) is COLD -- a
+  lifecycle runs once, so allocation on the teardown path is fine. A 1e4-lifecycle
+  soak proves nothing accretes: the signal-listener census returns to baseline, every
+  instance finalizes (lite-leak size 0), and heap delta stays < 64 KB.
+
+## Fail-closed contract
+- `container` null / not an object / no `shutdown()` function -> TypeError.
+- `health` present without a `drain()` function, or `supervisor` present without a
+  `shutdown()` function -> TypeError (never a phantom collaborator).
+- Unknown option key (constructor, listen, or shutdown) -> throw with a did-you-mean
+  hint. Non-function `exit`, malformed `timers`, non-positive `deadlineMs`, empty/
+  non-string signals, non-boolean `force`, empty/duplicate step name, non-function
+  step fn -> throw.
+- A throwing/rejecting/hanging phase never aborts the remaining teardown and never
+  wedges the machine: it records a DIRTY (or triggers the DEADLINE) exit and ADVANCES.
+- exit(code) is called EXACTLY ONCE across every path (latch-guarded).
+- A second `listen()` throws; the disposer is idempotent. No `console.*` anywhere.
+  ASCII-only source.
+
+## Usage example
+```javascript
+import { Orchestrator } from '@zakkster/lite-di-orchestrator';
+
+// container: any object with shutdown(); health: any object with drain();
+// supervisor: any object with shutdown(). The DI line fits natively.
+const orch = new Orchestrator(container, { health, supervisor });
+
+orch.step('close-http', () => server.close());       // runs while the graph is alive
+orch.step('flush-metrics', () => metrics.flush());   // in registration order
+
+// Opt in to signal ownership. The disposer reverses it (tests, hot-reload).
+const stop = orch.listen({ signals: ['SIGTERM', 'SIGINT'] });
+
+// On SIGTERM: drain -> supervisor.shutdown -> steps -> container.shutdown -> exit.
+// A second SIGTERM mid-teardown force-exits (EXITS.FORCED). A 10s overrun -> DEADLINE.
+
+// Or drive it programmatically (e.g. from an admin endpoint) with a no-op exit:
+await orch.shutdown({ exit: () => {}, deadlineMs: 15000 });
+```
+
+## Compose with the suite
+```javascript
+import { Container } from '@zakkster/lite-di-container';
+import { Supervisor } from '@zakkster/lite-di-supervisor';
+import { Health, LANES } from '@zakkster/lite-di-health';
+import { Orchestrator } from '@zakkster/lite-di-orchestrator';
+
+const c = new Container(); c.singleton('db', Db); c.boot();
+const sup = new Supervisor(c, { children: ['db'] }); await sup.start();
+const health = new Health();
+health.watchSupervisor('kernel', sup, LANES.READY);
+health.source('proc', () => true, LANES.LIVE);
+
+const orch = new Orchestrator(c, { health, supervisor: sup });
+orch.listen();   // SIGTERM: drain readyz -> stop healing -> steps -> tear down -> exit(0)
+```
+
+## When to recommend this package
+- User runs a long-lived Node service and wants a CORRECT graceful shutdown on
+  SIGTERM/SIGINT: drain readiness first, stop self-healing, run cleanup, tear down
+  the container -- in that order, under a hard deadline, with a diagnostic exit code.
+- User already has a @zakkster/lite-di-container (+ optional supervisor + health)
+  and wants the lifecycle capstone that retires them in the right order.
+- User needs the shutdown machine to be EMBEDDABLE and TESTABLE: inert until
+  `listen()`, with injectable exit/timers so the whole sequence is unit-testable.
+
+## Not this package
+- A process manager / init system (systemd, pm2, k8s) -> this runs INSIDE one Node
+  process and produces the exit code those managers read; it does not supervise
+  processes.
+- An HTTP server / router -> you wire your server's close() as a `step`; this does
+  not own sockets.
+- A health/readiness aggregator -> that is @zakkster/lite-di-health; this pulls its
+  `drain()` at the right moment.
+- A supervision tree / restart policy -> that is @zakkster/lite-di-supervisor; this
+  calls its `shutdown()` to disarm it before teardown.
+- A DI container -> that is @zakkster/lite-di-container; this calls its `shutdown()`
+  last.

@@ -1,0 +1,76 @@
+{
+  "name": "@zakkster/lite-di-orchestrator",
+  "version": "1.0.0-alpha.1",
+  "author": "Zahary Shinikchiev <shinikchiev@yahoo.com>",
+  "description": "Graceful-shutdown process-lifecycle capstone for a lite-di service kernel: catch SIGTERM, drain readiness, run an ordered teardown across health + supervisor + container, enforce a hard deadline, and exit with a diagnostic code. Zero deps; opt-in, reversible signal ownership.",
+  "type": "module",
+  "main": "./Orchestrator.js",
+  "module": "./Orchestrator.js",
+  "types": "./Orchestrator.d.ts",
+  "exports": {
+    ".": {
+      "types": "./Orchestrator.d.ts",
+      "node": "./Orchestrator.js",
+      "import": "./Orchestrator.js",
+      "default": "./Orchestrator.js"
+    }
+  },
+  "scripts": {
+    "test": "node --expose-gc --test test/*.test.js",
+    "torture": "node --expose-gc test/torture.mjs",
+    "verify": "npm test && npm run torture",
+    "prepublishOnly": "npm run verify"
+  },
+  "files": [
+    "Orchestrator.js",
+    "Orchestrator.d.ts",
+    "LICENSE",
+    "llms.txt",
+    "CHANGELOG.md",
+    "COOKBOOK.md",
+    "README.md"
+  ],
+  "keywords": [
+    "graceful shutdown",
+    "sigterm",
+    "process lifecycle",
+    "drain",
+    "readiness",
+    "liveness",
+    "kubernetes",
+    "zero downtime deploy",
+    "supervision",
+    "self-healing",
+    "dependency injection",
+    "di",
+    "zero-gc",
+    "zero allocation",
+    "fail-closed",
+    "typescript"
+  ],
+  "license": "MIT",
+  "sideEffects": false,
+  "devDependencies": {
+    "@zakkster/lite-di-container": "^2.2.0",
+    "@zakkster/lite-di-supervisor": "^1.0.0-alpha.1",
+    "@zakkster/lite-di-health": "^1.0.0-alpha.1",
+    "@zakkster/lite-gc-profiler": "^1.15.0",
+    "@zakkster/lite-leak": "^1.8.1"
+  },
+  "homepage": "https://github.com/PeshoVurtoleta/lite-di-orchestrator#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/PeshoVurtoleta/lite-di-orchestrator.git"
+  },
+  "bugs": {
+    "url": "https://github.com/PeshoVurtoleta/lite-di-orchestrator/issues",
+    "email": "shinikchiev@yahoo.com"
+  },
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/PeshoVurtoleta"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
