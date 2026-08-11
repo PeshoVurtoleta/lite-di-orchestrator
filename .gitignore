@@ -1,2 +1,6 @@
 node_modules/
 /package-lock.json
+
+# Node.js diagnostic reports (report.<timestamp>.<pid>.<seq>.json) dumped by the
+# torture/verify harness when it exercises SIGUSR2/SIGINT signal handling.
+report.*.json

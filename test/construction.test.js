@@ -18,8 +18,8 @@ describe('exports', () => {
         assert.equal(typeof VERSION, 'string');
     });
 
-    test('VERSION is 1.0.0-alpha.1', () => {
-        assert.equal(VERSION, '1.0.0-alpha.1');
+    test('VERSION is 1.0.0', () => {
+        assert.equal(VERSION, '1.0.0');
     });
 
     test('there is no default export', async () => {

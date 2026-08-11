@@ -1,6 +1,6 @@
 # @zakkster/lite-di-orchestrator
 
-Version: 1.0.0-alpha.1 (synced with package.json + the VERSION const in Orchestrator.js)
+Version: 1.0.0 (synced with package.json + the VERSION const in Orchestrator.js)
 
 > Graceful-shutdown / process-lifecycle capstone for a lite-di service kernel.
 > Catch SIGTERM/SIGINT, drain readiness (readyz fails; livez stays up), disarm the

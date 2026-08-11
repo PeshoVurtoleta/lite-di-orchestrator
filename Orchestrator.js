@@ -38,7 +38,7 @@
  * (c) Zahary Shinikchiev <shinikchiev@yahoo.com>
  */
 
-const VERSION = '1.0.0-alpha.1';
+const VERSION = '1.0.0';
 
 /** Lifecycle phases -- frozen int enum. `phase` returns one of these. */
 const STATES = Object.freeze({

@@ -3,6 +3,55 @@
 All notable changes to `@zakkster/lite-di-orchestrator` are documented here. The
 format follows Keep a Changelog; this project adheres to Semantic Versioning.
 
+## [1.0.0] - 2026-08-11
+
+Promotion to stable. The public surface is frozen exactly as shipped at
+`1.0.0-alpha.1` -- the `Orchestrator` class (`step`, `listen`, `shutdown`, the
+`phase` getter), the frozen `EXITS` and `STATES` enums, and `VERSION`. No exports
+added or removed.
+
+### Changed
+- The retention gate is now a real finalization residual, not a `size() === 0`
+  tautology. The soak tracks each full orchestrator lifecycle WITHOUT untracking,
+  settles hard, and asserts the finalization residual stays within a fixed ceiling
+  (`size() <= 16`) that does NOT scale with cycle count. Behavior unchanged; this is
+  the gate that now PROVES leak-freedom.
+
+### Proven
+- Downstream consumer: `examples/service-kernel.mjs`, the composed capstone reference
+  service -- a full `db <- cache <- api` container graph under a supervisor, a health
+  surface, and a leader lock, retired by this orchestrator. It asserts, with
+  `node:assert`, the ratified teardown ORDER (`health.drain()` ->
+  `supervisor.shutdown()` -> steps -> `container.shutdown()` -> `exit(OK)` EXACTLY
+  once), that liveness stays UP through the drain, the DIRTY and DEADLINE exit paths,
+  and the `listen()` signal seam (install / dispose / double-listen-throws on
+  `SIGUSR2`, with no real `SIGTERM` touched). Every claim is tamper-proven (a broken
+  contract exits non-zero). `npm run example` is a hard gate folded into `verify` /
+  `prepublishOnly`.
+- `node --expose-gc test/torture.mjs`: the `phase` getter measures 0.000 B/op in both
+  the running and stopped states over 1,000,000 reads; a 10,000-lifecycle retention
+  soak leaves the finalization residual at `size() 0/16` with a listener census of
+  `SIGTERM=0 SIGINT=0` and `gc major=0 minor=0`. The `DI_ALLOC_BREAK`,
+  `DI_ASCII_BREAK`, and `DI_TORTURE_BREAK` controls each force a non-zero exit.
+- `node:test`: 113/113 pass.
+
+### API frozen at 1.0.0
+The public surface is exactly the `Orchestrator` class, `EXITS`, `STATES`, and
+`VERSION`. The teardown order (`health.drain()` -> `supervisor.shutdown()` -> steps
+-> `container.shutdown()` -> `exit(code)`) is frozen. Deliberately NOT included --
+any would be a post-1.0.0 (1.1) change, never a 1.0.x slip (see
+`decisions/0001-orchestrator-model.md`):
+- NOT a process manager or init system -- Kubernetes / systemd / pm2 SUPERVISE the
+  process and send the signals; this runs INSIDE one process and produces the exit
+  code they read.
+- NOT an HTTP server or router -- wire your server's `close()` as a `step`.
+- NOT a health / readiness aggregator -- that is `@zakkster/lite-di-health`; this
+  pulls its `drain()` at the right moment.
+- NOT a supervision tree or restart policy -- that is `@zakkster/lite-di-supervisor`;
+  this calls its `shutdown()` to disarm it.
+- NOT a DI container -- that is `@zakkster/lite-di-container`; this calls its
+  `shutdown()` last and wires none of the graph.
+
 ## [1.0.0-alpha.1] - 2026-08-10
 
 The graceful-shutdown / process-lifecycle CAPSTONE of the `@zakkster/lite-di-*`
@@ -48,4 +97,5 @@ service-kernel line. First public alpha.
   container+supervisor+health money composition, and the DI_ALLOC_BREAK /
   DI_TORTURE_BREAK / DI_ASCII_BREAK controls that each force a non-zero exit.
 
+[1.0.0]: https://github.com/PeshoVurtoleta/lite-di-orchestrator/releases/tag/v1.0.0
 [1.0.0-alpha.1]: https://github.com/PeshoVurtoleta/lite-di-orchestrator/releases/tag/v1.0.0-alpha.1

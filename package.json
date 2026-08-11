@@ -1,6 +1,6 @@
 {
   "name": "@zakkster/lite-di-orchestrator",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0",
   "author": "Zahary Shinikchiev <shinikchiev@yahoo.com>",
   "description": "Graceful-shutdown process-lifecycle capstone for a lite-di service kernel: catch SIGTERM, drain readiness, run an ordered teardown across health + supervisor + container, enforce a hard deadline, and exit with a diagnostic code. Zero deps; opt-in, reversible signal ownership.",
   "type": "module",
@@ -54,9 +54,9 @@
   "sideEffects": false,
   "devDependencies": {
     "@zakkster/lite-di-container": "^2.2.0",
-    "@zakkster/lite-di-supervisor": "^1.0.0-alpha.1",
-    "@zakkster/lite-di-health": "^1.0.0-alpha.1",
-    "@zakkster/lite-di-lock": "^1.0.0-alpha.1",
+    "@zakkster/lite-di-supervisor": "^1.0.0",
+    "@zakkster/lite-di-health": "^1.0.0",
+    "@zakkster/lite-di-lock": "^1.0.0",
     "@zakkster/lite-gc-profiler": "^1.15.0",
     "@zakkster/lite-leak": "^1.8.1"
   },

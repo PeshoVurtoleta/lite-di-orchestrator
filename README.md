@@ -247,7 +247,7 @@ VERSION                                                                   // ver
 | `EXITS.DIRTY`      | `number` (`1`)  | A phase threw/rejected but the sequence still finished in time.    |
 | `EXITS.DEADLINE`   | `number` (`2`)  | The sequence overran `deadlineMs`; the one-shot timer force-exited.|
 | `EXITS.FORCED`     | `number` (`3`)  | A second signal arrived while a shutdown was already in flight.    |
-| `VERSION`          | `string`        | `'1.0.0-alpha.1'`.                                                  |
+| `VERSION`          | `string`        | `'1.0.0'`.                                                  |
 
 ## Composability with the DI line
 

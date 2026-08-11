@@ -34,7 +34,7 @@ const CONTAINER = { shutdown() { return Promise.resolve(); } };
 export async function run() {
     // -- Law 0: VERSION three-place synced; STATES / EXITS frozen int enums ------
     {
-        check(VERSION === '1.0.0-alpha.1', () => 'T0.version: VERSION is ' + VERSION);
+        check(VERSION === '1.0.0', () => 'T0.version: VERSION is ' + VERSION);
         check(Object.isFrozen(STATES), () => 'T0.freeze: STATES is not frozen');
         check(Object.isFrozen(EXITS), () => 'T0.freeze: EXITS is not frozen');
         check(STATES.RUNNING === 0 && STATES.DRAINING === 1 && STATES.STOPPING === 2 &&
