@@ -18,7 +18,8 @@
   "scripts": {
     "test": "node --expose-gc --test test/*.test.js",
     "torture": "node --expose-gc test/torture.mjs",
-    "verify": "npm test && npm run torture",
+    "example": "node examples/service-kernel.mjs",
+    "verify": "npm test && npm run torture && npm run example",
     "prepublishOnly": "npm run verify"
   },
   "files": [
@@ -28,7 +29,8 @@
     "llms.txt",
     "CHANGELOG.md",
     "COOKBOOK.md",
-    "README.md"
+    "README.md",
+    "examples/service-kernel.mjs"
   ],
   "keywords": [
     "graceful shutdown",
@@ -54,6 +56,7 @@
     "@zakkster/lite-di-container": "^2.2.0",
     "@zakkster/lite-di-supervisor": "^1.0.0-alpha.1",
     "@zakkster/lite-di-health": "^1.0.0-alpha.1",
+    "@zakkster/lite-di-lock": "^1.0.0-alpha.1",
     "@zakkster/lite-gc-profiler": "^1.15.0",
     "@zakkster/lite-leak": "^1.8.1"
   },

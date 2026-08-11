@@ -380,7 +380,19 @@ listen, or shutdown) with a did-you-mean hint, a bad step name/fn, a non-functio
   retention soak (listener census + lite-leak + heap delta), a real
   container+supervisor+health money composition, and the DI_ALLOC_BREAK /
   DI_TORTURE_BREAK / DI_ASCII_BREAK controls that each force a non-zero exit.
-- `npm run verify` -- `npm test` then `npm run torture`, the publish gate.
+- `npm run example` -- runs [`examples/service-kernel.mjs`](examples/service-kernel.mjs),
+  a runnable, SELF-VERIFYING reference app that composes all five kernel modules
+  (container + supervisor + health + lock + this package) into ONE self-healing
+  backend service: boot -> a lock-guarded reconcile under a fencing lease -> a fault
+  that SELF-HEALS (rest-for-one rebuild) -> a restart budget that escalates instead of
+  hot-looping -> every construction guard failing closed -> a graceful "SIGTERM" drain
+  in the ratified order (drain -> supervisor.shutdown -> steps -> container.shutdown,
+  exit(OK) exactly once). Every claim is asserted with `node:assert/strict`, so a
+  broken contract exits non-zero. It is the downstream consumer that proves this
+  package's API in composition (the collaborators are dev deps a tarball consumer
+  installs alongside it).
+- `npm run verify` -- `npm test`, then `npm run torture`, then `npm run example` -- the
+  publish gate (`prepublishOnly`).
 
 ## What this is not
 
